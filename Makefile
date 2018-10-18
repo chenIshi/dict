@@ -1,6 +1,7 @@
 TESTS = test_cpy test_ref
 
 PLOT = plot_ref
+PLOT_EXEC = ./$(PLOT)
 
 TEST_DATA = s Tai
 
@@ -67,7 +68,7 @@ bench: $(TESTS)
 
 plot: $(TESTS)
 	$(VECHO) "  PLOT\t$^\n"
-	$(PLOT)
+	$(PLOT_EXEC)
 	$(VPLOT) $(PLOT_SRCIPT)
 
 clean:

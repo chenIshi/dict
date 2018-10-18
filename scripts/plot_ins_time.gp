@@ -1,8 +1,7 @@
 reset
 set ylabel 'time(micro sec)'
-set xlabel 'insert data(ten thousand)'
+set xlabel 'data count(ten thousand)'
 set title 'insertion time per tens of thousand'
-set xtics 2,1
 set format x ""
 set term png enhanced font 'Verdana,10'
 set output 'insertion_time.png'

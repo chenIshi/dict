@@ -8,7 +8,7 @@ TEST_DATA = s Tai
 CFLAGS = -O0 -Wall -Werror -g
 
 VPLOT = gnuplot
-PLOT_SRCIPT = scripts/plot_ins_time.gp
+PLOT_SRCIPT = scripts/plot_ins_time.gp scripts/plot_search_time.gp
 
 # Control the build verbosity                                                   
 ifeq ("$(VERBOSE)","1")
@@ -71,9 +71,13 @@ plot: $(TESTS)
 	$(PLOT_EXEC)
 	$(VPLOT) $(PLOT_SRCIPT)
 
+CLEAN_OBJ = \
+	bench_cpy.txt bench_ref.txt ref.txt cpy.txt caculate \
+	ins_time_bloom.txt ins_time_wobloom.txt search_time_bloom.txt search_time_wobloom.txt
+
 clean:
 	$(RM) $(TESTS) $(OBJS)
 	$(RM) $(deps)
-	rm -f  bench_cpy.txt bench_ref.txt ref.txt cpy.txt caculate
+	rm -f  $(CLEAN_OBJ)
 
 -include $(deps)

@@ -20,7 +20,10 @@ enum { INS, DEL, WRDMAX = 256, STKMAX = 512, LMAX = 1024 };
 #define CPY DEL
 
 #define IN_FILE "cities.txt"
-#define OUT_INS_TIME "ins_time.txt"
+#define OUT_INS_TIME_BLOOM "ins_time_bloom.txt"
+#define OUT_INS_TIME_WOBLOOM "ins_time_wobloom.txt"
+#define OUT_SEARCH_TIME_BLOOM "search_time_bloom.txt"
+#define OUT_SEARCH_TIME_WOBLOOM "search_time_wobloom.txt"
 
 long poolsize = 2000000 * WRDMAX;
 
@@ -55,44 +58,58 @@ int main(int argc, char **argv)
     double t1, t2;
 
     FILE *fpin = fopen(IN_FILE, "r");
-    FILE *fpout_ins = fopen(OUT_INS_TIME, "w");
+    FILE *fpout_ins_bloom = fopen(OUT_INS_TIME_BLOOM, "w");
+    FILE *fpout_ins_wobloom = fopen(OUT_INS_TIME_WOBLOOM, "w");
 
     if (!fpin) {
         fprintf(stderr, "error: file open failed '%s'.\n", argv[1]);
-        fclose(fpout_ins);
+        fclose(fpout_ins_bloom);
+        fclose(fpout_ins_wobloom);
         return 1;
     }
 
-    if (!fpout_ins) {
-        fprintf(stderr, "error: file write failed '%s'.\n", OUT_INS_TIME);
+    if (!fpout_ins_bloom) {
+        fprintf(stderr, "error: file write failed '%s'.\n", OUT_INS_TIME_BLOOM);
         fclose(fpin);
+        fclose(fpout_ins_wobloom);
+        return 1;
+    }
+
+    if (!fpout_ins_wobloom) {
+        fprintf(stderr, "error: file write failed '%s'.\n",
+                OUT_INS_TIME_WOBLOOM);
+        fclose(fpin);
+        fclose(fpout_ins_bloom);
         return 1;
     }
 
     /* insert time of none-bloom tst */
-    fprintf(fpout_ins, "## non-bloom insertion time\n");
     for (int i = 0; i < DotNum; i++) {
         tst_node *root_test = NULL;
         t1 = tvgetf();
         init_tst_wbloom(fpin, root_test, i);
         t2 = tvgetf();
         tst_free_all(root_test);
-        fprintf(fpout_ins, "%lf\n", (t2 - t1) * 1000000);
+        fprintf(fpout_ins_wobloom, "%d %lf\n", i + 1, (t2 - t1) * 1000000);
     }
 
     /* insert time of bloom tst */
-    fprintf(fpout_ins, "\n## non-bloom insertion time\n");
     for (int i = 0; i < DotNum; i++) {
-        bloom_t blm_test = bloom_create(TableSize);
         tst_node *root_test = NULL;
         t1 = tvgetf();
+        bloom_t blm_test = bloom_create(TableSize);
         init_tst_bloom(fpin, blm_test, root_test, i);
         t2 = tvgetf();
         tst_free_all(root_test);
         bloom_free(blm_test);
-        fprintf(fpout_ins, "%lf\n", (t2 - t1) * 1000000);
+        fprintf(fpout_ins_bloom, "%d %lf\n", i + 1, (t2 - t1) * 1000000);
     }
 
+    fclose(fpout_ins_bloom);
+    fclose(fpout_ins_wobloom);
+
+
+    /* regularly create a useful bloom and tst*/
     bloom_t bloom = bloom_create(TableSize);
     tst_node *root = NULL;
 
@@ -107,7 +124,6 @@ int main(int argc, char **argv)
             /* failed to insert*/
             fprintf(stderr, "error: memory exhausted, tst_insert.\n");
             fclose(fpin);
-            fclose(fpout_ins);
             return 1;
         } else {
             /* update bloom filter */
@@ -117,7 +133,61 @@ int main(int argc, char **argv)
         Top += (strlen(Top) + 1);
     }
 
-    fclose(fpout_ins);
+    /* search time with/without bloom filter */
+
+    FILE *fpout_search_time_bloom = fopen(OUT_SEARCH_TIME_BLOOM, "w");
+    FILE *fpout_search_time_wobloom = fopen(OUT_SEARCH_TIME_WOBLOOM, "w");
+
+    if (!fpout_search_time_bloom) {
+        fprintf(stderr, "error: file open failed '%s'.\n",
+                OUT_SEARCH_TIME_BLOOM);
+        fclose(fpout_search_time_wobloom);
+        fclose(fpin);
+        return 1;
+    }
+
+    if (!fpout_search_time_wobloom) {
+        fprintf(stderr, "error: file open failed '%s'.\n",
+                OUT_SEARCH_TIME_WOBLOOM);
+        fclose(fpout_search_time_bloom);
+        fclose(fpin);
+        return 1;
+    }
+
+    int search_sample_cnt = 0;
+    double search_time_total_bloom = 0.0;
+    double search_time_total_wobloom = 0.0;
+
+    rewind(fpin);
+    while ((rtn = fscanf(fpin, "%s", Top)) != EOF) {
+        char *p = Top;
+        t1 = tvgetf();
+        bloom_test(bloom, p);
+        t2 = tvgetf();
+        search_time_total_bloom += (t2 - t1) * 1000000;
+
+        t1 = tvgetf();
+        tst_search(root, p);
+        t2 = tvgetf();
+        search_time_total_wobloom += (t2 - t1) * 1000000;
+
+        search_sample_cnt++;
+        if (search_sample_cnt % 100 == 0) {
+            fprintf(fpout_search_time_bloom, "%d %lf\n",
+                    search_sample_cnt / 100, search_time_total_bloom / 100);
+            fprintf(fpout_search_time_wobloom, "%d %lf\n",
+                    search_sample_cnt / 100, search_time_total_wobloom / 100);
+            search_time_total_bloom = 0.0;
+            search_time_total_wobloom = 0.0;
+        }
+    }
+
+    fclose(fpout_search_time_bloom);
+    fclose(fpout_search_time_wobloom);
+
+    bloom_free(bloom);
+    tst_free(root);
+
     fclose(fpin);
 }
 

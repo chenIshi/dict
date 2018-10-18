@@ -1,8 +1,13 @@
 TESTS = test_cpy test_ref
 
+PLOT = plot_ref
+
 TEST_DATA = s Tai
 
 CFLAGS = -O0 -Wall -Werror -g
+
+VPLOT = gnuplot
+PLOT_SRCIPT = scripts/plot_ins_time.gp
 
 # Control the build verbosity                                                   
 ifeq ("$(VERBOSE)","1")
@@ -17,7 +22,7 @@ GIT_HOOKS := .git/hooks/applied
 
 .PHONY: all clean
 
-all: $(GIT_HOOKS) $(TESTS)
+all: $(GIT_HOOKS) $(TESTS) $(PLOT)
 
 $(GIT_HOOKS):
 	@scripts/install-git-hooks
@@ -29,11 +34,16 @@ OBJS_LIB = \
 OBJS := \
     $(OBJS_LIB) \
     test_cpy.o \
-    test_ref.o
+    test_ref.o \
+	plot_ref.o
 
 deps := $(OBJS:%.o=.%.o.d)
 
 test_%: test_%.o $(OBJS_LIB)
+	$(VECHO) "  LD\t$@\n"
+	$(Q)$(CC) $(LDFLAGS)  -o $@ $^ -lm
+
+plot_%: plot_%.o $(OBJS_LIB)
 	$(VECHO) "  LD\t$@\n"
 	$(Q)$(CC) $(LDFLAGS)  -o $@ $^ -lm
 
@@ -54,6 +64,11 @@ bench: $(TESTS)
 	@for test in $(TESTS); do\
 		./$$test --bench $(TEST_DATA); \
 	done
+
+plot: $(TESTS)
+	$(VECHO) "  PLOT\t$^\n"
+	$(PLOT)
+	$(VPLOT) $(PLOT_SRCIPT)
 
 clean:
 	$(RM) $(TESTS) $(OBJS)
